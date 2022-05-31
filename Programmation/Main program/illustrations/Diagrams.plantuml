@@ -1,0 +1,123 @@
+@startuml
+:Mise sous tension\nou\nappui sur un bouton de vote;
+note right
+Appuie sur le bouton ON/OFF si la borne est éteinte 
+ou 
+appui sur un bouton de vote si la borne est en "deep sleep"
+end note
+#lightblue:Entrée dans la fonction Setup();
+
+if (A-t-on une mise sous tension ?) then (oui)
+	if( Carte SD manquante ?) then (non)
+		if( Fichier params.ini manquant ?) then (non)
+			if( Fichier params.ini mal formaté ?) then (non)
+				if( La question a-t-elle changée ? ) then (oui)
+					:Reinitialisation des fichiers\nde synthèse en ROM;
+					:Effacement de la question en ROM;
+				endif
+				if( on initialise la date ou l'heure à partir du fichier params.ini ? ) then (non)
+				else (oui)
+					if( Format de date et heure valide ?) then (non)
+						#yellow:Clignote\nLED Jaune\nrapidement 3 fois;
+					else (oui)
+						#lightgreen:Clignoter\nLED Verte\n3 fois;
+					endif
+				endif
+				:Extinction LEDs;
+				if ( Niveau de baterie < 20%) then (oui)
+					#yellow:Mettre le Flag probleme\nbatterie à vrai\n(BOO_ProblemeBatterie = true);
+					if (niveau Batterie < 5%) then (oui)
+						:Mettre le Flag Clignote\nbatterie à vrai\n(BOO_ProblemeBatterieClignote = true);
+					endif
+				else (non)
+					#lightgreen:Allume LED Verte;
+
+					:Deep sleep;
+					stop
+				endif
+			else (oui)
+				#red:Mettre le Flag probleme\ncarte SD à vrai\n(BOO_ProblemeCarteSD = true);
+				:Mettre le Flag clignote\ncarte SD à vrai\n(BOO_ProblemeCarteSDClignote = true);
+				:Création fichiers vierges;
+				:Effacement des fichiers en ROM;
+				:Effacement de la question en ROM;
+			endif
+		else (oui)
+			#red:Mettre le Flag probleme\ncarte SD à vrai\n(BOO_ProblemeCarteSD = true);
+			:Mettre le Flag clignote\ncarte SD à vrai\n(BOO_ProblemeCarteSDClignote = true);
+			:Création fichiers vierges;
+			:Effacement des fichiers en ROM;
+			:Effacement de la question en ROM;
+		endif
+	else (oui)
+		#red:Mettre le Flag probleme\ncarte SD à vrai\n(BOO_ProblemeCarteSD = true);
+	endif
+	#lightblue:Fin du Setup();
+
+else (non)
+  
+	:Lecture ID bouton appuyé;
+	note right
+		DEEPSLEEP_getGPIOWakeUp()
+	end note 
+	
+	:Allumage de la LED du bouton appuyé;
+	:Lecture de la date et l'heure;
+	:Lecture niveau batterie ;
+	if( Peut-on lire le fichier de paramétrage ?) then (oui)
+		:Lecture du fichier de configuration;
+		:Ecriture dans en fin de fichier des mesures;
+		:Mise à jour de la synthèse des votes;
+		note right
+			On utilise littleFS pour gain de rapidité
+		end note
+
+		:délai avant exctinction des Led;
+		note right
+			Ce delai est ajustable,
+			il permet à l'usager de vérifier que son vote
+			a bien été pris en compte
+		end note
+
+		:Eteind les LEDs ;
+		note right
+			On éteint toutes les Leds,
+			sans chercher laquelle est allumée
+		end note
+		
+		:Deep sleep;
+		note right
+			Mise en place du masque de réveil des boutons.
+		end note
+		stop
+	else (non)
+		#red:Mettre le Flag probleme\ncarte SD à vrai\n(BOO_ProblemeCarteSD = true);
+	endif
+endif;
+
+#lightblue:Entrée dans la fonction loop();
+repeat
+	if (Flag carteSD = vrai ?) then (oui)
+		#red:AlumerLedRouge;
+	else (non)
+	endif
+	  
+	if(Flag Batterie = vrai ?) then (oui)
+		#yellow:AlumerLedJaune;
+	else(non)
+	endif
+
+	if (Flag carteSD Clignote = vrai ?) then(oui)
+		#red:eteindreLedrouge;
+	else(non)
+	endif
+
+	if (Flag Batterie Clignote = vrai ?) then(oui)
+		#yellow:éteindre LedJaune;
+	else (non)
+	endif
+repeat while(Appui sur un bouton)
+:oui;
+:Deep sleep;
+stop
+@enduml
